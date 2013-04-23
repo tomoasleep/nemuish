@@ -1,7 +1,7 @@
 /* 
 Headers for parse.c
 */
-#define PROMPT "ish$ " /* 入力ライン冒頭の文字列 */
+#define PROMPT "nemuish$ " /* 入力ライン冒頭の文字列 */
 
 #define NAMELEN 32    /* 各種名前の長さ */
 #define ARGLSTLEN 16  /* 1つのプロセスがとる実行時引数の数 */
