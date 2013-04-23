@@ -147,7 +147,7 @@ job* parse_line(char *buf) {
     int index=0, arg_index=0;
 
     /* 改行文字まで解析する */
-    while(*buf != '\n') {
+    while(*buf != '\n' && *buf != '\0') {
 	/* 空白およびタブを読んだときの処理 */
         if(*buf == ' ' || *buf == '\t') { 
 	    buf++;
