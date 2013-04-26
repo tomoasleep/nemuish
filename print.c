@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "parse.h"
 
-static int print_process(process* pr) {
+int print_process(process* pr) {
 
     int index = 0;
 
