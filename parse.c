@@ -84,6 +84,7 @@ static process* initialize_process() {
     initialize_program_name(p);
     initialize_argument_list(p);
     initialize_argument_list_element(p, 0);
+    p->pid = -1;
     p->input_redirection = NULL;
     p->output_option = TRUNC;
     p->output_redirection = NULL;

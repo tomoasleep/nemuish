@@ -2,50 +2,54 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/wait.h>
 #include "parse.h"
+#include "print.h"
 #include "env.h"
 #include "options.h"
 
 #define FILEPATH_MAXLEN 256
 
-static char *search_path(char *program_name) {
+static int search_path(const char *program_name, char *path) {
     env_contents *iter;
     envi *pathenv = search_env_by_name(options->env, "PATH");
     if (!pathenv) {
         fprintf(stderr, "no path\n");
-        return NULL;
+        return -1;
     }
 
     for (iter = pathenv->contents; iter != NULL; iter = iter->next) {
-        char filepath[FILEPATH_MAXLEN];
-        strcpy(filepath, iter->value);
-        strcat(filepath, "/");
-        strcat(filepath, program_name);
+        strcpy(path, iter->value);
+        strcat(path, "/");
+        strcat(path, program_name);
         
-        if (access(filepath, F_OK) == 0) return filepath;
+        if (access(path, F_OK) == 0) return 0;
     }
-    return NULL;
+    return -1;
 }
 
 static int exec_process(process* pr) {
 
-    int index = 0;
-    print_process(pr);
+    // int index = 0;
+    // print_process(pr);
 
     if(pr->program_name == NULL) {
         return -1;
     }
 
+    char path[FILEPATH_MAXLEN];
     if (pr->program_name[0] != '\0') {
         if (pr->program_name[0] == '.' && pr->program_name[1] == '/') {
             execve(pr->program_name, pr->argument_list, options->env_str);
         } else if (pr->program_name[0] == '/') {
             execve(pr->program_name, pr->argument_list, options->env_str);
         } else {
-            execve(search_path(pr->program_name), pr->argument_list, options->env_str);
+            search_path(pr->program_name, path);
+            execve(path, pr->argument_list, options->env_str);
         }
     } else {
-        execve(search_path(pr->program_name), pr->argument_list, options->env_str);
+        search_path(pr->program_name, path);
+        execve(path, pr->argument_list, options->env_str);
     }
     // error
     fprintf(stderr, "%s: command not found:\n", pr->program_name);
@@ -65,32 +69,85 @@ static int exec_process(process* pr) {
     return 0;
 }
 
+static int wait_process_list(job *jb) {
+    int exitval = 0;
+    process *pr;
+
+    if (jb->mode == FOREGROUND) {
+        for(pr = jb->process_list; pr != NULL; pr = pr->next) {
+            if (pr->pid < 0) {
+                perror("wait");
+                exit(1);
+            }
+            waitpid(pr->pid, &exitval, 0);
+        }
+    }
+    return 0;
+}
+
 int exec_job_list(job* job_list)
 {
     int index;
-    int exitval = 0;
-    job*     jb;
-    pid_t pid;
+    job *jb;
+    process *pr;
 
     for(index = 0, jb = job_list; jb != NULL; jb = jb->next, ++index) {
-        
-        // print_process(jb->process_list);
+        int fileds[2][2] = {
+            {-1, -1},
+            {-1, -1}
+        };
+        int has_before = 0;
 
-        pid = fork();
+        for(pr = jb->process_list; pr != NULL; pr = pr->next) {
+            // get before process'es pipeno (for input)
+            fileds[0][0] = fileds[1][0];
+            fileds[0][1] = fileds[1][1];
 
-        if (pid < 0) {
-            perror("fork");
-            exit(1);
-        } else if (pid > 0) {
-            if (jb->mode == FOREGROUND) {
-                waitpid(pid, &exitval, 0);
-            } else {
-                fprintf(stderr, "background pid:%d\n", pid);
+            if (pr->next) {
+                if (pipe(fileds[1]) < 0) {
+                    perror("pipe");
+                    exit(3);
+                }
             }
-        } else {
-            exec_process(jb->process_list);
+
+            pr->pid = fork();
+
+            if (pr->pid < 0) {
+                perror("fork");
+                exit(3);
+            } else if (pr->pid > 0) {
+                // parents do not use before process'es pipe 
+                if (fileds[0][0] != -1) close(fileds[0][0]);
+                if (fileds[0][1] != -1) close(fileds[0][1]);
+
+                if (pr->next) {
+                    has_before = 1;
+                } else has_before = 0;
+                continue;
+            }
+
+            if (has_before) {
+                // connect before process'es out to in
+                close(STDIN_FILENO); dup2(fileds[0][0], STDIN_FILENO);
+                close(fileds[0][0]);
+                // close unuse pipe
+                close(fileds[0][1]);
+            }
+            if (pr->next) {
+                // close unuse pipe
+                close(fileds[1][0]);
+                // connect my process'es out to next process'es in
+                close(STDOUT_FILENO); dup2(fileds[1][1], STDOUT_FILENO);
+                close(fileds[1][1]);
+            }
+            exec_process(pr);
         }
-        
+    }
+
+    for(index = 0, jb = job_list; jb != NULL; jb = jb->next, index++) {
+        wait_process_list(jb);
+    }
+
     //    printf("id %d [ %s ]\n", index, 
     //            jb->mode == FOREGROUND ? "foreground" : "background" );
 
@@ -101,7 +158,5 @@ int exec_job_list(job* job_list)
         //     if(jb->next != NULL) {
         //         printf( "\n" );
         //     }
-        // }
-    }
-    return exitval;
+    return 0;
 }

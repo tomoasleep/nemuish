@@ -6,12 +6,13 @@
 #include "parse.h"
 #include "env.h"
 #include "options.h"
+#include "execute.h"
 
 extern void print_job_list(job*);
 
 int main(int argc, char *argv[], char *env[])
 {
-    char *s, **h;
+    char *s;
     job *curr_job;
     envi *envs;
 

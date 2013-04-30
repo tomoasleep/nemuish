@@ -95,8 +95,6 @@ void print_env(envi *env) {
 }
 
 envi *search_env_by_name(envi *env, char* name) {
-    int i;
-
     if (env == NULL) return NULL;
     if (env->name == NULL) return search_env_by_name(env->next, name);
     if (strcmp(env->name, name) == 0) {

@@ -18,6 +18,7 @@ typedef struct process_
     char*        program_name;
     char**       argument_list;
     
+    pid_t pid;
     char*        input_redirection;
     
     write_option output_option;
