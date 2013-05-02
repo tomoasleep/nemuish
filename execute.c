@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "parse.h"
 #include "print.h"
 #include "env.h"
@@ -126,6 +128,29 @@ int exec_job_list(job* job_list)
                 continue;
             }
 
+            // redirection
+            if (pr->input_redirection) {
+                int inputds = open(pr->input_redirection, O_RDONLY);
+                close(STDIN_FILENO); dup2(inputds, STDIN_FILENO);
+                close(inputds);
+            }
+
+            if (pr->output_redirection) {
+                int outputds = -1;
+                switch (pr->output_option) {
+                    case APPEND:
+                        outputds = open(pr->output_redirection,
+                                O_WRONLY | O_APPEND | O_CREAT, S_IREAD | S_IWRITE);
+                        break;
+                    case TRUNC:
+                        outputds = open(pr->output_redirection,
+                                O_WRONLY | O_TRUNC | O_CREAT, S_IREAD | S_IWRITE);
+                }
+                close(STDOUT_FILENO); dup2(outputds, STDOUT_FILENO);
+                close(outputds);
+            }
+
+            // pipeline
             if (has_before) {
                 // connect before process'es out to in
                 close(STDIN_FILENO); dup2(fileds[0][0], STDIN_FILENO);
