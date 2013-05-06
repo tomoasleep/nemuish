@@ -5,8 +5,11 @@
 #include <readline/history.h>
 #include "parse.h"
 #include "env.h"
+#include "buildin.h"
 #include "options.h"
 #include "execute.h"
+#include "cd.h"
+
 
 extern void print_job_list(job*);
 
@@ -17,13 +20,10 @@ int main(int argc, char *argv[], char *env[])
     envi *envs;
 
     options = malloc(sizeof(shell_options));
+    options->bcmds = create_bcmd(NULL, "cd", exec_cd);
 
-    // for (h = env; *h != NULL; h++) {
-    //     printf("%s\n", *h);
-    // }
     envs = make_env(env);
     options->env = envs;
-    // print_env(envs);
 
     while((s = readline(PROMPT))) {
         if(!strcmp(s, "exit")) 
@@ -33,7 +33,7 @@ int main(int argc, char *argv[], char *env[])
 
         curr_job = parse_line(s);
 
-        print_job_list(curr_job);
+        // print_job_list(curr_job);
         exec_job_list(curr_job);
 
         free(s);

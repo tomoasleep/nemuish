@@ -1,3 +1,4 @@
+#pragma once
 
 #define ENVNAME_MAXLEN 30
 #define ENVCONTENTS_MAXLEN 100

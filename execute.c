@@ -8,6 +8,7 @@
 #include "parse.h"
 #include "print.h"
 #include "env.h"
+#include "buildin.h"
 #include "options.h"
 
 #define FILEPATH_MAXLEN 256
@@ -30,7 +31,7 @@ static int search_path(const char *program_name, char *path) {
     return -1;
 }
 
-static int exec_process(process* pr) {
+static int exec_process(process *pr) {
 
     // int index = 0;
     // print_process(pr);
@@ -68,6 +69,24 @@ static int exec_process(process* pr) {
                 pr->output_option == TRUNC ? "trunc" : "append" );
 
 
+    return 0;
+}
+
+static int exec_buildin(process *pr) {
+    buildin_cmd *bcmd;
+
+    if (!options->bcmds) return 0;
+    bcmd = search_bcmd(options->bcmds, pr->program_name);
+    if (bcmd) {
+        char **arglist = pr->argument_list;
+        int argc = 0;
+        for(;;) {
+            if (!arglist[argc++]) break;
+        }
+
+        bcmd->exec(argc, arglist, NULL);
+        return 1;
+    }
     return 0;
 }
 
@@ -110,6 +129,10 @@ int exec_job_list(job* job_list)
                     perror("pipe");
                     exit(3);
                 }
+            }
+
+            if (exec_buildin(pr)) {
+                pr->program_name = NULL;
             }
 
             pr->pid = fork();
@@ -165,6 +188,8 @@ int exec_job_list(job* job_list)
                 close(STDOUT_FILENO); dup2(fileds[1][1], STDOUT_FILENO);
                 close(fileds[1][1]);
             }
+
+            if (!pr->program_name) exit(0);
             exec_process(pr);
         }
     }
